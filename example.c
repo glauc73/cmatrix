@@ -3,13 +3,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include "include/cMatrix.h"
-
-typedef enum{
-    BASIC_SOLUTION = 0,
-    BASIC_FEASIBLE_SOLUTION
-} PPLSolution_t;
 
 void free_all(cmatrix_float* mtrzs[], int n){
     if(!mtrzs) return;
@@ -20,6 +16,11 @@ void free_all(cmatrix_float* mtrzs[], int n){
         }
     }
 }
+
+typedef enum{
+    BASIC_SOLUTION = 0,
+    BASIC_FEASIBLE_SOLUTION
+} PPLSolution_t;
 
 int64_t next_combination(int64_t x){
     int64_t c = x & -x;
@@ -100,7 +101,7 @@ cmatrix_error generate_all_BS(cmatrix_float*** solutions, size_t* n_solutions, c
         mask = next_combination(mask);
     }
     if(cntbasics == 0) return CMATRIX_SINGULAR_MATRIX;
-    *solutions = realloc(*solutions, cntbasics * sizeof(cmatrix_float*));
+       *solutions = realloc(*solutions, cntbasics * sizeof(cmatrix_float*));
     *n_solutions = cntbasics;
 
     cM(Bb, free);
@@ -109,22 +110,56 @@ cmatrix_error generate_all_BS(cmatrix_float*** solutions, size_t* n_solutions, c
     return CMATRIX_OK;
 }
 
-int main(){
-    size_t m, n;
+int setargs(int argc, const char* argv[], PPLSolution_t* vbn){
+    if(argc < 2){
+        printf(
+            "chamada sem argumentos. use:\n"
+            "-sb para gerar as soluções basicas\n"
+            "-sbv para gerar as básicas viáveis\n"
+        );
+        return 0;
+    }
+    if(strcmp(argv[1], "-sbv") == 0){
+        *vbn = BASIC_FEASIBLE_SOLUTION;
+    }else if(strcmp(argv[1], "-sb") == 0){
+        *vbn = BASIC_SOLUTION;
+    }else{
+        printf(
+            "argumentos invalidos. use:\n"
+            "-sb para gerar as soluções basicas\n"
+            "-sbv para gerar as básicas viáveis\n"
+        );
+        return 0;
+    }
+    return 1;
+}
+
+int main(int argc, const char* argv[]){
     PPLSolution_t vbn;
-    scanf("%d", &vbn);
+    if(!setargs(argc, argv, &vbn)) goto fim;
+    
+    size_t m, n;
     scanf(" %zu %zu", &m, &n);
     cmatrix_float* Ab = get_cmatrix_float(m, n); 
     cmatrix_float** x = NULL;
     size_t n_x;
     cmatrix_error err = generate_all_BS(&x, &n_x, Ab, vbn);
-    if(err) goto fim;
+    if(err == CMATRIX_SINGULAR_MATRIX){
+        printf("Nenhuma solução basica viável\n");
+        goto fim;
+    }
 
     for(int i = 0; i < n_x; i++)
         cM(x[i], print);
+    
+    if(vbn)
+        printf("numero de soluções básicas viáveis: %zu\n", n_x);
+    else
+        printf("numero de soluções básicas: %zu\n", n_x);
+
     cM(Ab, free);
     for(int i = 0; i < n_x; i++) cM(x[i], free);
+    free(x);
 fim:
     return 0;
 }
-
