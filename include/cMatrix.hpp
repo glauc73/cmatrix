@@ -10,7 +10,7 @@
     #undef GENERICS_TYPE
     #define GENERICS_NAME int
     #define GENERICS_TYPE int
-    #include "genericMatrix.h"
+    #include "genericMatrix.hpp"
 #endif
 
 #ifndef _MATRIX_CHAR_
@@ -19,7 +19,7 @@
     #undef GENERICS_TYPE
     #define GENERICS_NAME char
     #define GENERICS_TYPE char
-    #include "genericMatrix.h"
+    #include "genericMatrix.hpp"
 #endif
 
 #ifndef _MATRIX_UINT_
@@ -28,7 +28,7 @@
     #undef GENERICS_TYPE
     #define GENERICS_NAME uint
     #define GENERICS_TYPE unsigned
-    #include "genericMatrix.h"
+    #include "genericMatrix.hpp"
 #endif
 
 #ifndef _MATRIX_FLOAT_
@@ -37,7 +37,7 @@
     #undef GENERICS_TYPE
     #define GENERICS_NAME float
     #define GENERICS_TYPE float    
-    #include "genericMatrix.h"
+    #include "genericMatrix.hpp"
 #endif
 
 #ifndef _MATRIX_DOUBLE_
@@ -46,7 +46,7 @@
     #undef GENERICS_TYPE
     #define GENERICS_NAME double
     #define GENERICS_TYPE double
-    #include "genericMatrix.h"
+    #include "genericMatrix.hpp"
 #endif
 
 #undef MATRIX_TYPE
