@@ -366,19 +366,13 @@ static inline cmatrix_error CONCAT(swap_cols_, MATRIX_TYPE)(MATRIX_TYPE** self, 
     if(c1 >= (*self)->cols || c2 >= (*self)->cols) return CMATRIX_INDEX_OUT_OF_RANGE;
     if(c1 == c2) return CMATRIX_OK;
 
-    GENERICS_TYPE* pc1 = (*self)->data + c1*(*self)->rows;
-    GENERICS_TYPE* pc2 = (*self)->data + c2*(*self)->rows;
+    //a matriz é armazenada por linhas: o elemento (i, c) fica em data[i*cols + c]
     for(size_t i = 0; i < (*self)->rows; i++){
-<<<<<<< HEAD
-        GENERICS_TYPE tmp = pc1[i]; pc1[i] = pc2[i]; pc2[i] = tmp;
-    }
-=======
         GENERICS_TYPE tmp = cM((*self), at, i, c1);
         cM((*self), at, i, c1) = cM((*self), at, i, c2);
         cM((*self), at, i, c2) = tmp;
     }
     (*self)->was_modified = 1;
->>>>>>> cc4c283 (macro cM(at) adicionada)
     return CMATRIX_OK;
 }
 
@@ -387,17 +381,10 @@ static inline cmatrix_error CONCAT(slice_, MATRIX_TYPE)(MATRIX_TYPE** self, MATR
     if(!self || !*self) return CMATRIX_NULL_POINTER;
 
     size_t m = A->rows;   size_t n = A->cols;
-<<<<<<< HEAD
-    
-    if(i1 < i0) {size_t tmp = i0, i0 = i1, i1 = tmp;}
-    if(j1 < j0) {size_t tmp = j0, j0 = j1, j1 = tmp;}
-    
-=======
 
     if(i1 < i0) {size_t tmp = i0; i0 = i1; i1 = tmp;}
     if(j1 < j0) {size_t tmp = j0; j0 = j1; j1 = tmp;}
 
->>>>>>> cc4c283 (macro cM(at) adicionada)
     if(i1 >= m || j1 >= n) return CMATRIX_INDEX_OUT_OF_RANGE;
 
     size_t slice_m = i1 - i0 + 1;
@@ -920,19 +907,12 @@ static CONCAT(VTable_, GENERICS_NAME) CONCAT(vtable_, GENERICS_NAME) = {
     .ref = CONCAT(REF_, MATRIX_TYPE),
     .det = CONCAT(det_, MATRIX_TYPE),
     .print = CONCAT(print_, MATRIX_TYPE),
-<<<<<<< HEAD
-    .fill = CONCAT(fill_, MATRIX_TYPE),
-    .fill_rand = CONCAT(rand_fill_, MATRIX_TYPE),
-    .identity = CONCAT(identity_, MATRIX_TYPE),
-    .hstack = CONCAT(concat_, MATRIX_TYPE),
-=======
     .fprint = CONCAT(fprint_, MATRIX_TYPE),
     .fill = CONCAT(fill_, MATRIX_TYPE),
     .fill_rand = CONCAT(rand_fill_, MATRIX_TYPE),
     .identity = CONCAT(identity_, MATRIX_TYPE),
     .hstack = CONCAT(hstack_, MATRIX_TYPE),
     .vstack = CONCAT(vstack_, MATRIX_TYPE),
->>>>>>> cc4c283 (macro cM(at) adicionada)
     .apply = CONCAT(apply_, MATRIX_TYPE),
     .swapRows = CONCAT(swap_rows_, MATRIX_TYPE),
     .swapCols = CONCAT(swap_cols_, MATRIX_TYPE),
