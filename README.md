@@ -46,7 +46,26 @@ cmatrix_float* A = get_cmatrix_float(3, 3);
 // constrói a partir de um array 2D existente
 float arr[2][3] = {{1,2,3},{4,5,6}};
 cmatrix_float* B = cmatrix_float_init2D(2, 3, arr);
+
+// copia um array 2D para uma matriz existente
+// (se as dimensões forem diferentes, a matriz é recriada)
+cmatrix_float_set2D(&B, 2, 3, arr);
 ```
+
+### Estrutura da matriz
+
+Os elementos ficam em **um único bloco contíguo**, armazenado por linhas (*row-major*):
+
+```c
+typedef struct cmatrix_float {
+    float* data;      // rows * cols elementos, linha após linha
+    size_t rows, cols;
+    VTable_float* vptr;
+    // ... atributos privados (cache do determinante)
+} cmatrix_float;
+```
+
+O elemento `(i, j)` está em `data[i * cols + j]`. Não existe mais um vetor de ponteiros por linha (o antigo campo `at`): o acesso é feito pela macro `cM(A, at, i, j)`, descrita a seguir.
 
 ### A macro `cM`
 
@@ -57,13 +76,36 @@ cM(A, print);
 cM(C, mult, A, B);   // C = A · B
 ```
 
+### Acessando elementos: `cM(A, at, i, j)`
+
+Quando o método é `at`, o `cM` não chama a vtable: ele expande direto para `A->data[i * A->cols + j]`. Por isso serve tanto para **ler** quanto para **atribuir**:
+
+```c
+cmatrix_double* A = new_cmatrix_double(3, 3);
+
+cM(A, at, 0, 1) = 5.0;          // atribuir
+double x = cM(A, at, 0, 1);     // ler
+cM(A, at, 2, 2) += 1.5;         // operadores compostos (+=, *=, ...)
+cM(A, at, 1, 0) = cM(A, at, 0, 1) * 2;
+```
+
+Pontos de atenção:
+
+- **Sem verificação de limites.** `i` e `j` fora de `[0, rows)` e `[0, cols)` leem ou escrevem fora da matriz. Os índices são convertidos para `size_t`.
+- **`A` é avaliado mais de uma vez** na expansão, então não passe expressões com efeito colateral (por exemplo `cM(p++, at, 0, 0)`).
+- **Não é um método da vtable.** O nome `at` é reservado pelo `cM`, e um método da vtable chamado `at` nunca seria alcançado por ele.
+- Depende da extensão `, ##__VA_ARGS__` (gcc e clang, inclusive com `-std=c11`). Compiladores sem essa extensão, como o MSVC puro, podem falhar.
+- Para percorrer toda a matriz, `A->data[k]` com `k` de `0` a `rows * cols - 1` é o caminho mais direto, já que os dados são contíguos.
+
 ---
 
 ## Funcionalidades
 
 | Operação | Macro `cM` | O que faz | Expressão aritmética |
 |----------|------------|-----------|----------------------|
+| Acessar elemento | `cM(A, at, i, j)` | Lê ou atribui o elemento (i, j); expande para `A->data[i*cols + j]` | aᵢⱼ |
 | Imprimir | `cM(A, print)` | Exibe a matriz formatada no terminal | — |
+| Imprimir em arquivo | `cM(A, fprint, f)` | Escreve a matriz formatada no arquivo `f` | — |
 | Copiar | `cM(B, cpy, A)` | Copia o conteúdo de A em B | B ← A |
 | Preencher constante | `cM(A, fill, v)` | Preenche todos os elementos com `v` | aᵢⱼ = v |
 | Preencher aleatório (`int`) | `cM(A, fill_rand, min, max)` | Preenche com inteiros aleatórios em `[min, max]` | aᵢⱼ ~ U(min, max) ∩ ℤ |
@@ -83,9 +125,10 @@ cM(C, mult, A, B);   // C = A · B
 | Inversa | `cM(B, inv, A)` | Inversa via Gauss-Jordan | B = A⁻¹ |
 | Determinante | `float d = cM(A, det)` | Determinante em O(n³), com cache | d = det(A) |
 | Concatenação horizontal | `cM(C, hstack, A, B)` | Junta A e B lado a lado | C = [A \| B] |
+| Concatenação vertical | `cM(C, vstack, A, B)` | Empilha B embaixo de A | C = [A ; B] |
 | Aplicar função | `cM(A, apply, f, params)` | Aplica `f(aᵢⱼ, params)` a cada elemento | aᵢⱼ ← f(aᵢⱼ) |
-| Redimensionar | `cM(A, reshape, m, n)` | Muda dimensões mantendo os dados | — |
-| Trocar linhas | `cM(A, swapRows, i, j)` | Troca as linhas i e j em O(1) | Lᵢ ↔ Lⱼ |
+| Redimensionar | `cM(A, reshape, m, n)` | Muda dimensões mantendo os dados (exige `m·n` igual ao atual) | — |
+| Trocar linhas | `cM(A, swapRows, i, j)` | Troca as linhas i e j | Lᵢ ↔ Lⱼ |
 | Trocar colunas | `cM(A, swapCols, i, j)` | Troca as colunas i e j | Cᵢ ↔ Cⱼ |
 | Fatiar | `cM(B, slice, A, i0, i1, j0, j1)` | Extrai submatriz de A | B = A[i0:i1, j0:j1] |
 | Obter coluna | `cM(B, getCol, A, j)` | Extrai a coluna j de A como vetor coluna | B = A[:, j] |
@@ -96,11 +139,58 @@ cM(C, mult, A, B);   // C = A · B
 | Liberar | `cM(A, free)` | Libera a memória alocada | — |
 
 > `rref`, `inv`, `dot` e `atLeast` só existem para `cmatrix_float` e `cmatrix_double`.  
-> `fill_rand` para `int` não recebe o parâmetro `inteiros`.
+> `fill_rand` para `int` não recebe o parâmetro `inteiros`.  
+> `ref`, `rref` e `fprint` registram cada passo no arquivo global `step_file`. Abra-o antes de chamar essas operações (por exemplo `step_file = fopen("steps.txt", "w");`, ou `step_file = stdout;` para ver no terminal). Se ele continuar `NULL`, o programa falha.
 
 ---
 
 ## Exemplos por operação
+
+### `at` — ler e atribuir elementos
+
+```c
+cmatrix_float* A = new_cmatrix_float(3, 3);
+
+// preenche com a tabuada: A[i][j] = (i+1) * (j+1)
+for (size_t i = 0; i < A->rows; i++)
+    for (size_t j = 0; j < A->cols; j++)
+        cM(A, at, i, j) = (float)((i + 1) * (j + 1));
+
+cM(A, at, 1, 1) += 10;                   // operador composto
+printf("A[1][1] = %g\n", cM(A, at, 1, 1));
+cM(A, print);
+
+cM(A, free);
+```
+
+### `vstack` — concatenação vertical
+
+```c
+// A: 2×3, B: 4×3  →  C: 6×3
+cmatrix_float* A = new_cmatrix_float(2, 3);
+cmatrix_float* B = new_cmatrix_float(4, 3);
+cmatrix_float* C = new_cmatrix_float(1, 1);  // dimensões iniciais não importam
+
+cM(A, fill_rand, 1, 5, 1);
+cM(B, fill_rand, 1, 5, 1);
+cM(C, vstack, A, B);   // C = [A ; B]  (exige A->cols == B->cols)
+cM(C, print);
+
+cM(A, free); cM(B, free); cM(C, free);
+```
+
+### `fprint` — imprimir em arquivo
+
+```c
+step_file = fopen("passos.txt", "w");   // usado internamente por ref/rref/fprint
+
+cmatrix_float* A = new_cmatrix_float(3, 3);
+cM(A, fill_rand, 1, 9, 1);
+cM(A, fprint, step_file);
+
+cM(A, free);
+fclose(step_file);
+```
 
 ### `slice` — fatiar submatriz
 
@@ -170,6 +260,8 @@ cM(A, free); cM(B, free);
 ### `rref` e `inv`
 
 ```c
+step_file = stdout;   // rref registra os passos em step_file
+
 cmatrix_float* A    = new_cmatrix_float(3, 3);
 cmatrix_float* R    = new_cmatrix_float(3, 3);
 cmatrix_float* Ainv = new_cmatrix_float(3, 3);
@@ -244,6 +336,8 @@ Todas as funções que retornam `void` foram convertidas para retornar `cmatrix_
 | `CMATRIX_INDEX_OUT_OF_RANGE` | 8 | Índice de linha ou coluna fora do intervalo válido |
 
 As funções com retorno próprio — `det`, `dot`, `inv` e `atLeast` — não foram alteradas.
+
+> O acesso `cM(A, at, i, j)` **não** verifica limites nem retorna `cmatrix_error`: ele é uma expressão que designa o próprio elemento.
 
 ### Exemplo de uso
 
@@ -326,7 +420,7 @@ cmatrix_error generate_all_BS(cmatrix_float*** solutions, size_t* n_solutions,
         // verifica se a submatriz tem posto completo (nenhum pivô nulo na diagonal)
         int full_rank = 1;
         for (size_t r = 0; r < Bb->rows; r++)
-            if (fabsf(Bb->at[r][r]) < 1e-6) { full_rank = 0; break; }
+            if (fabsf(cM(Bb, at, r, r)) < 1e-6) { full_rank = 0; break; }
 
         if (full_rank) {
             // reconstrói x completo (variáveis não-básicas = 0)
@@ -356,6 +450,8 @@ cmatrix_error generate_all_BS(cmatrix_float*** solutions, size_t* n_solutions,
 }
 
 int main() {
+    step_file = stdout;          // rref registra os passos em step_file
+
     size_t m, n;
     PPLSolution_t tipo;
     scanf("%d", &tipo);          // 0 = todas as SB, 1 = apenas SBV (x >= 0)
