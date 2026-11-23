@@ -18,7 +18,6 @@ cmatrix/agora
 │   └── cMatrix.h         # ponto de entrada — inclua só este
 ├── example.c             # demonstração completa (soluções básicas de PPL)
 ├── build.sh              # compilação Linux/macOS
-└── build.bat             # compilação Windows
 ```
 
 ---
